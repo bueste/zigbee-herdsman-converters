@@ -7457,11 +7457,21 @@ export const definitions: DefinitionWithExtend[] = [
             const endpoint = device.getEndpoint(1);
             await reporting.bind(endpoint, coordinatorEndpoint, ["genOnOff", "customClusterEwelink", "seMetering"]);
             await reporting.onOff(endpoint, {min: 1, max: 1800, change: 0});
-            await endpoint.read<"customClusterEwelink", SonoffEwelink>(
-                "customClusterEwelink",
-                ["acCurrentCurrentValue", "acCurrentVoltageValue", "acCurrentPowerValue", 0x7003, "outlet_control_protect"],
-                defaultResponseOptions,
-            );
+            try {
+                await endpoint.read<"customClusterEwelink", SonoffEwelink>(
+                    "customClusterEwelink",
+                    ["radioPower", 0x0016, 0x5012, 0x5013],
+                    defaultResponseOptions,
+                );
+            } catch (e) {
+                // Some MINI-ZBRBS units/firmware reject this read with ZCL status
+                // UNSUP_CLUSTER (195), even though writing motorTravelCalibrationAction
+                // on the same cluster works fine. Don't let this block the rest of
+                // device configuration (binding/reporting set up by m.windowCovering()).
+                logger.error(`Configure failed: ${e}`, NS);
+            }
+         },
+     },
             await endpoint.configureReporting<"customClusterEwelink", SonoffEwelink>("customClusterEwelink", [
                 {attribute: "energyMonth", minimumReportInterval: 60, maximumReportInterval: 3600, reportableChange: 50},
                 {attribute: "energyYesterday", minimumReportInterval: 60, maximumReportInterval: 3600, reportableChange: 50},
